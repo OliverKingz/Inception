@@ -1,0 +1,77 @@
+services:
+  # Servicio de Base de Datos
+  mariadb:
+    container_name: mariadb
+    build:
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
+    image: mariadb
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - inception_network
+    expose:
+      - "3306"
+
+  # Servicio de Aplicación (PHP-FPM 8.2)
+  wordpress:
+    container_name: wordpress
+    build:
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
+    image: wordpress
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    env_file:
+      - .env
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - inception_network
+    expose:
+      - "9000"
+
+  # Servicio de Servidor Web (Reverse Proxy)
+  nginx:
+    container_name: nginx
+    build:
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    image: nginx
+    restart: unless-stopped
+    depends_on:
+      - wordpress
+    env_file:
+      - .env
+    ports:
+      - "443:443"
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - inception_network
+
+# Configuración de la Red Privada (Bridge)
+networks:
+  inception_network:
+    name: inception_network
+    driver: bridge
+
+# Configuración de los Volúmenes con Ruta Física en el Host
+volumes:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/home/ozamora-/data/mariadb'
+
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/home/ozamora-/data/wordpress'
