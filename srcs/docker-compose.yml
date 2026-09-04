@@ -10,6 +10,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    secrets:
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_PASSWORD
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
@@ -30,6 +33,10 @@ services:
       - mariadb
     env_file:
       - .env
+    secrets:
+      - MYSQL_PASSWORD
+      - WORDPRESS_USER_PASS
+      - WORDPRESS_ADMIM_PASS
     volumes:
       - wordpress_data:/var/www/html
     networks:
@@ -80,3 +87,15 @@ volumes:
       type: 'none'
       o: 'bind'
       device: '/home/ozamora-/data/wordpress'
+
+# Secrets
+# Securely store sensitive information like passwords, which can be accessed by the containers.
+secrets:
+  MYSQL_ROOT_PASSWORD:
+    file: ../secrets/MYSQL_ROOT_PASSWORD.txt
+  MYSQL_PASSWORD:
+    file: ../secrets/MYSQL_PASSWORD.txt
+  WORDPRESS_USER_PASS:
+    file: ../secrets/WORDPRESS_USER_PASS.txt
+  WORDPRESS_ADMIM_PASS:
+    file: ../secrets/WORDPRESS_ADMIM_PASS.txt

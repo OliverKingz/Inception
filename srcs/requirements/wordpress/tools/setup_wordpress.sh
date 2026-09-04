@@ -1,6 +1,11 @@
 #!/bin/bash
 set -eu
 
+# Read the WordPress user and admin passwords from Docker secrets for security
+MYSQL_PASSWORD=$(cat /run/secrets/MYSQL_PASSWORD)
+WORDPRESS_USER_PASS=$(cat /run/secrets/WORDPRESS_USER_PASS)
+WORDPRESS_ADMIM_PASS=$(cat /run/secrets/WORDPRESS_ADMIM_PASS)
+
 # Wait for MariaDB to be ready and accepting TCP connections
 echo "Waiting for MariaDB to be ready..."
 until mariadb -h mariadb -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1; do
