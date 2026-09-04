@@ -1,5 +1,6 @@
 services:
-  # Servicio de Base de Datos
+  # Database Service (MariaDB)
+  # MariaDB service that will serve as the database backend for WordPress.
   mariadb:
     container_name: mariadb
     build:
@@ -16,7 +17,8 @@ services:
     expose:
       - "3306"
 
-  # Servicio de Aplicación (PHP-FPM 8.2)
+  # Application Service (PHP-FPM 8.2)
+  # FastCGI Process Manager for PHP 8.2, which will handle PHP requests from the NGINX reverse proxy.
   wordpress:
     container_name: wordpress
     build:
@@ -35,7 +37,8 @@ services:
     expose:
       - "9000"
 
-  # Servicio de Servidor Web (Reverse Proxy)
+  # Web Server Service (Reverse Proxy)
+  # Reverse proxy service that forwards requests to the WordPress container.
   nginx:
     container_name: nginx
     build:
@@ -54,13 +57,15 @@ services:
     networks:
       - inception_network
 
-# Configuración de la Red Privada (Bridge)
+# Bridge Network
+# Allows communication between the containers, isolated from the host network.
 networks:
   inception_network:
     name: inception_network
     driver: bridge
 
-# Configuración de los Volúmenes con Ruta Física en el Host
+# Volumes
+# Allows data persistence even if the containers are removed or recreated.
 volumes:
   mariadb_data:
     driver: local

@@ -1,32 +1,32 @@
 #!/bin/bash
 set -eu
 
-# 1. Esperar a que la base de datos MariaDB esté lista respondiendo conexiones TCP
-# Esto previene errores de "Error establishing database connection" al arrancar el stack de golpe
-echo "Esperando a que MariaDB acepte conexiones..."
+# Wait for MariaDB to be ready and accepting TCP connections
+echo "Waiting for MariaDB to be ready..."
 until mariadb -h mariadb -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1; do
     sleep 2
 done
-echo "MariaDB lista. Continuando con WordPress..."
+echo "MariaDB is ready. Continuing with WordPress..."
 
-# 2. Descargar e instalar WP-CLI de forma dinámica si no está presente
+# Download and install WP-CLI dynamically if not present
+# WP-CLI is a command-line interface for managing WordPress installations, allowing for automation and scripting of tasks.
 if [ ! -f /usr/local/bin/wp ]; then
-    echo "Instalando la utilidad WP-CLI..."
+    echo "Installing WP-CLI utility..."
     curl -fsSL -o /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
     chmod +x /tmp/wp-cli.phar
     mv /tmp/wp-cli.phar /usr/local/bin/wp
 fi
 
-# 3. Descargar el núcleo oficial de WordPress en español si el directorio está vacío
+# Download the official WordPress core in Spanish if the directory is empty
 if [ ! -f /var/www/html/index.php ]; then
-    echo "Descargando código fuente de WordPress..."
+    echo "Downloading official WordPress core in Spanish..."
     cd /var/www/html
     wp core download --allow-root --locale=es_ES
 fi
 
-# 4. Generar el archivo de configuración wp-config.php con las variables seguras enviadas por .env
+# Generate the wp-config.php configuration file with secure variables sent by .env
 if [ ! -f /var/www/html/wp-config.php ]; then
-    echo "Escribiendo credenciales en wp-config.php..."
+    echo "Writing configuration to wp-config.php..."
     wp config create --allow-root \
         --dbname="${MYSQL_DATABASE}" \
         --dbuser="${MYSQL_USER}" \
@@ -35,9 +35,19 @@ if [ ! -f /var/www/html/wp-config.php ]; then
         --path='/var/www/html'
 fi
 
-# 5. Instalar el sitio web y crear los dos usuarios obligatorios
+# Set the canonical HTTPS URL before any WP-CLI command loads WordPress (to avoid warnings)
+SITE_URL="https://${DOMAIN_NAME}"
+if [ "$(wp config get WP_HOME --type=constant --allow-root --path=/var/www/html 2>/dev/null || true)" != "$SITE_URL" ]; then
+    wp config set WP_HOME "$SITE_URL" --type=constant --allow-root --path=/var/www/html
+fi
+
+if [ "$(wp config get WP_SITEURL --type=constant --allow-root --path=/var/www/html 2>/dev/null || true)" != "$SITE_URL" ]; then
+    wp config set WP_SITEURL "$SITE_URL" --type=constant --allow-root --path=/var/www/html
+fi
+
+# Install the website and create the two mandatory users
 if ! wp core is-installed --allow-root --path=/var/www/html; then
-    echo "Ejecutando instalación del core de WordPress..."
+    echo "Installing WordPress core and creating mandatory users..."
 
     wp core install --allow-root \
         --url="${DOMAIN_NAME}" \
@@ -48,26 +58,24 @@ if ! wp core is-installed --allow-root --path=/var/www/html; then
         --skip-email \
         --path=/var/www/html
 
-    echo "Creando el segundo usuario con privilegios de autor..."
+    echo "Creating WordPress user with author role..."
     wp user create "${WORDPRESS_USER}" "${WORDPRESS_EMAIL}" \
         --role=author \
         --user_pass="${WORDPRESS_USER_PASS}" \
         --allow-root \
         --path=/var/www/html
-
-    echo "Instalando tema base para la vista..."
-    wp theme install twentytwentythree --activate --allow-root --path=/var/www/html || true
 fi
 
-# 6. Corregir propietarios y permisos del sistema de archivos en el volumen mapeado
-# www-data es el usuario oficial del servidor web que requiere permisos de escritura en uploads y plugins
-echo "Corrigiendo propietario de archivos a www-data..."
+# Correct file ownership and permissions in the mapped volume
+# www-data is the official web server user that requires write permissions in uploads and plugins
+# 755: Owner can read/write/execute, group and others can read/execute
+echo "Setting correct file ownership and permissions for /var/www/html..."
 chown -R www-data:www-data /var/www/html
 chmod -R 755 /var/www/html
 
-# 7. Ejecutar PHP-FPM en primer plano como PID 1 (evita la caída del contenedor)
-# -F fuerza a PHP-FPM a ejecutarse en primer plano, lo que es necesario para que Docker mantenga el contenedor activo, en ejecicion constante
-echo "Wordpress listo! Iniciando PHP-FPM en el puerto 9000..."
+# Run PHP-FPM in the foreground as PID 1 (prevents container from exiting)
+# -F forces PHP-FPM to run in the foreground, which is necessary for Docker to keep the container active and running
+echo "WordPress setup complete! Starting PHP-FPM on port 9000..."
 mkdir -p /run/php
 chown -R www-data:www-data /run/php
 exec /usr/sbin/php-fpm8.2 -F

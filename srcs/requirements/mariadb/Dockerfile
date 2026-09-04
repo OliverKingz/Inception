@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
 
 # Create the runtime directory /run/mysqld (the standard for Debian Bookworm)
 # and assign it to the mysql user to avoid permission errors when writing the socket
+# 755: Default for directories. Owner can read/write/execute, group and others can read/execute
 RUN mkdir -p /run/mysqld \
     && chown -R mysql:mysql /run/mysqld \
     && chmod 755 /run/mysqld

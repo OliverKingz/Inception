@@ -6,6 +6,7 @@ mkdir -p /var/run/mysqld /var/lib/mysql /var/log/mysql
 chown -R mysql:mysql /var/run/mysqld /var/lib/mysql /var/log/mysql
 
 # Check if the MariaDB data directory is empty, and if so, initialize it and apply the database configuration
+# Bootstrap mode allows us to run SQL commands directly without starting the full server, which is useful for initial setup
 if [ ! -d "/var/lib/mysql/${MYSQL_DATABASE}" ]; then
     echo "Initializing data directory physically..."
     mysql_install_db --user=mysql --datadir=/var/lib/mysql > /dev/null

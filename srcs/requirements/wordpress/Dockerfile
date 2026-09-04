@@ -1,7 +1,7 @@
 FROM debian:bookworm
 
-# Instalar dependencias del sistema, PHP-FPM, extensiones de PHP y cliente de MariaDB en la misma capa
-# Ademas, limpiar la caché de apt para reducir el tamaño de la imagen
+# Install system dependencies, PHP-FPM, PHP extensions, and MariaDB client in a single layer
+# Also, clean the apt cache afterward to reduce the image size
 RUN apt-get update && apt-get install -y \
     php8.2-fpm \
     php8.2-mysql \
@@ -17,21 +17,22 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Requisito de Linux: Crear el directorio runtime donde PHP-FPM guarda su pid/socket de ejecución
+# Create the runtime directory where PHP-FPM stores its execution pid/socket
 RUN mkdir -p /run/php && chmod 755 /run/php
 
-# Copiar la configuración personalizada de pools (escucha en puerto TCP 9000)
+# Copy the custom pool configuration (listening on TCP port 9000)
 COPY conf/www.conf /etc/php/8.2/fpm/pool.d/www.conf
 
-# Copiar el script de configuración automática y darle permisos de ejecución
+# Copy the auto-setup script and grant execution permissions
 COPY tools/setup_wordpress.sh /usr/local/bin/setup_wordpress.sh
 RUN chmod +x /usr/local/bin/setup_wordpress.sh
 
-# Definir el directorio de trabajo donde operará el volumen compartido
+# Define the working directory where the shared volume will operate
 WORKDIR /var/www/html
 
-# Exponer puerto 9000 para el protocolo FastCGI de NGINX (documentativo)
+# Expose port 9000 for NGINX FastCGI protocol (documentative)
 EXPOSE 9000
 
-# El script actúa como Entrypoint para lanzar el auto-instalador antes del servicio definitivo 
+# The script acts as an Entrypoint to launch the auto-installer before the final service.
+# It ensures that WordPress is set up correctly with the provided environment variables before starting PHP-FPM.
 ENTRYPOINT ["/usr/local/bin/setup_wordpress.sh"]
