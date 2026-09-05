@@ -121,21 +121,21 @@ rebuild-nginx:
 
 db:
 	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as wpuser (interactive shell)$(RESET)"
-	docker exec -it mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$MYSQL_PASSWORD"'
+	docker exec -it mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)"'
 
 db-root:
 	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as root (interactive shell)$(RESET)"
-	docker exec -it mariadb sh -c 'mariadb -u root -p"$$MYSQL_ROOT_PASSWORD"'
+	docker exec -it mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)"'
 
 db-check:
 	@echo "$(CYAN)[$(NAME)] Databases:$(RESET)"
-	docker exec mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$MYSQL_PASSWORD" -e "SHOW DATABASES;"'
+	docker exec mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)" -e "SHOW DATABASES;"'
 	@echo "\n$(CYAN)[$(NAME)] Users:$(RESET)"
-	docker exec mariadb sh -c 'mariadb -u root -p"$$MYSQL_ROOT_PASSWORD" -e "SELECT User, Host FROM mysql.user;"'
+	docker exec mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" -e "SELECT User, Host FROM mysql.user;"'
 	@echo "\n$(CYAN)[$(NAME)] Grants:$(RESET)"
-	docker exec mariadb sh -c 'mariadb -u root -p"$$MYSQL_ROOT_PASSWORD" -e "SHOW GRANTS FOR '\''ozamora'\''@'\''%'\'';"'
+	docker exec mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" -e "SHOW GRANTS FOR '\''ozamora'\''@'\''%'\'';"'
 	@echo "\n$(CYAN)[$(NAME)] Grants for root:$(RESET)"
-	docker exec mariadb sh -c 'mariadb -u root -p"$$MYSQL_ROOT_PASSWORD" -e "SHOW GRANTS FOR '\''root'\''@'\''localhost'\'';"'
+	docker exec mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" -e "SHOW GRANTS FOR '\''root'\''@'\''localhost'\'';"'
 
 wp-check:
 	@echo "\n$(CYAN)[WordPress] Users list and roles:$(RESET)"
