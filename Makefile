@@ -41,7 +41,10 @@ $(DATA_DIR)/wordpress:
 	@echo "$(YELLOW)Creating directory for WordPress in $(DATA_DIR)/wordpress$(RESET)"
 	@mkdir -p $(DATA_DIR)/wordpress
 
-build: $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
+dirs: $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
+	@echo "$(GREEN)All necessary directories are ready!$(RESET)"
+
+build: dirs
 	@echo "$(GREEN)Docker build: compiling images in docker$(RESET)"
 	docker compose -f $(COMPOSE_FILE) build
 
@@ -121,11 +124,11 @@ rebuild-nginx:
 
 db:
 	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as wpuser (interactive shell)$(RESET)"
-	docker exec -it mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)"'
+	docker exec -it mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)" $$MYSQL_DATABASE'
 
 db-root:
 	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as root (interactive shell)$(RESET)"
-	docker exec -it mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)"'
+	docker exec -it mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" $$MYSQL_DATABASE'
 
 db-check:
 	@echo "$(CYAN)[$(NAME)] Databases:$(RESET)"
@@ -176,7 +179,8 @@ fclean: clean clean-data clean-docker
 
 re: fclean all
 
-.PHONY: all build up down start stop restart status \
+.PHONY: all dirs build up down start stop restart status \
 logs logs-mariadb logs-wordpress logs-nginx \
-reset-data reset-mariadb reset-wordpress reset-nginx \
-clean clean-data clean-doker fclean re
+rebuild-data rebuild-mariadb rebuild-wordpress rebuild-nginx \
+db db-root db-check wp-check ls-containers \
+clean clean-data clean-docker fclean re
