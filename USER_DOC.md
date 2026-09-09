@@ -86,33 +86,35 @@ make fclean
 ### 5. The complete list of Makefile commands
 Main rules for managing the project lifecycle:
 * `make all` (or `make`): Automatically creates host storage directories for WordPress and MariaDB, builds the custom Docker images, and launches the stack in detached mode.
+* `make env`: Creates the `.env` file with default environment variables if it doesn't exist.
 * `make dirs`: Creates the necessary directories for persistent data storage on the host machine.
 * `make build`: Compiles the custom Docker images without launching the containers.
-* `make up`: Starts previously compiled services in detached mode (`-d`).
+* `make up`: Starts previously compiled services in detached mode (`-d`). It also waits for the services to be fully ready before returning control to the terminal.
 * `make down`: Gracefully stops the containers without deleting persistent volume directories.
 * `make start`: Starts the containers without rebuilding them.
 * `make stop`: Stops the containers without deleting them.
 * `make restart`: Stops and then starts the containers.
+
+Rules for displaying information and logs
+* `make images`: Lists the Docker images that have been built for the project.
+* `make ps`: Lists the running containers and their status.
 * `make status`: Displays the status of the images and running containers.
-
-Rules for displaying logs
 * `make logs`: Displays the logs of all containers in real-time.
-* `make logs-mariadb`: Displays the logs of the MariaDB container in real-time.
-* `make logs-wordpress`: Displays the logs of the WordPress container in real-time.
-* `make logs-nginx`: Displays the logs of the NGINX container in real-time.
+* `make logs-<service>`: Displays the logs of a specific service (e.g., `make logs-wordpress`).
 
-Rules for rebuilding services preserving persistent data:
-* `make rebuild-data`: Rebuilds the data volumes for all services.
-* `make rebuild-mariadb`: Rebuilds the MariaDB data volume.
-* `make rebuild-wordpress`: Rebuilds the WordPress data volume.
-* `make rebuild-nginx`: Rebuilds the NGINX data volume.
-
-Rules for accessing the database and checking the status of services:
-* `make db`: Accesses the MariaDB ozamoradb database as the WordPress user (interactive shell).
-* `make db-root`: Accesses the MariaDB ozamoradb database as the root user (interactive shell).
+Rules for checking the health of the services, database, network and containers:
 * `make db-check`: Displays the list of databases in MariaDB, users and their grants (permissions and privileges). 
 * `make wp-check`: Displays the list of users and their roles in WordPress. Also the URL
+* `make network-check`: Inspects the Docker network created by docker-compose to ensure that all containers are connected properly.
 * `make ls-containers`: Lists the critical directories for each running container.
+
+Rules for rebuilding services preserving persistent data:
+* `make rebuild-all`: Rebuilds all the services, useful for applying changes to the Dockerfiles or configuration files without losing your data.
+* `make rebuild-<service>`: Rebuilds the data volume for a specific service (e.g., `make rebuild-wordpress`).
+
+Rules for accessing the database:
+* `make db`: Accesses the MariaDB ozamoradb database as the WordPress user (interactive shell).
+* `make db-root`: Accesses the MariaDB ozamoradb database as the root user (interactive shell).
 
 Rules for cleaning up the environment:
 * `make clean`: Stops and removes the active project containers, networks, and internal Docker-built images.
@@ -138,15 +140,23 @@ You need to map the domain `ozamora.42.fr` to your local machine.
   127.0.0.1 ozamora.42.fr
   ```
 
-### Step 2: Access the site in your browser
-Open your browser and visit:
+### Step 2: Access the site in your terminal or browser
+There are two ways to access the website: 
+1. By using the terminal of the virtual machine:
+```bash
+curl -k https://ozamora.42.fr
+```
+Flag -k allows curl to ignore the self-signed certificate warning and display the HTML content of the website.
+
+2. By using your web browser
+```bash
+startx firefox
+```
+After opening your browser, now visit:
 - **Main Website:** [https://ozamora.42.fr](https://ozamora.42.fr)
 - **WordPress Admin Panel:** [https://ozamora.42.fr/wp-admin](https://ozamora.42.fr/wp-admin)
 
-### Step 3: Skip the SSL/Security Warning
 Because we are using a self-signed security certificate (which is normal and required for testing), your browser will show a red warning saying the site is unsafe.
-- **On Chrome:** Click anywhere on the blank warning screen and type: **`thisisunsafe`** on your keyboard. The page will reload and show the site.
-- **On Safari or Firefox:** Click "Advanced" or "Show Details" and choose "Proceed to website" or "Accept the risk".
 
 ---
 
@@ -160,8 +170,10 @@ The file `srcs/.env` contains general variables such as the domain name, databas
 
 ### 2. Private Passwords (`secrets/` directory)
 Sensitive passwords are saved in small text files inside the `secrets/` directory in the root of the project:
-- `secrets/db_password.txt`: Password for the WordPress database user.
-- `secrets/db_root_password.txt`: Master password for the MariaDB database root administrator.
+- `secrets/MYSQL_PASSWORD.txt`: Password for the WordPress database user.
+- `secrets/MYSQL_ROOT_PASSWORD.txt`: Master password for the MariaDB database root administrator.
+- `secrets/WORDPRESS_ADMIM_PASS.txt`: Password for the WordPress admin user.
+- `secrets/WORDPRESS_USER_PASS.txt`: Password for the WordPress regular user.
 
 > 🔒 **Security Notice:** Both the `srcs/.env` file and the `secrets/` folder are listed in `.gitignore`. They will **never** be uploaded to GitHub, which is a strict rule to pass the project.
 
@@ -181,20 +193,33 @@ docker ps
 ### 2. Read the log files to spot errors
 If a service is down, read its logs to find out why:
 ```bash
+# To read all logs at once:
+make logs
+
+# To read logs of a specific service:
 docker logs nginx
 docker logs wordpress
 docker logs mariadb
+
+# Or use the Makefile command:
+make logs-nginx
+make logs-wordpress
+make logs-mariadb
 ```
 
-### 3. Inspect the virtual network
+### 3. Check the virtual network
 To verify that all three containers are connected to the same isolated network:
 ```bash
+# Full command:
 docker network inspect inception_network
+
+# Or use the Makefile command:
+make network-check
 ```
 
 ### 4. Check the Database status
-You can enter the database directly via the command line to verify that your data is safe:
+To verify the status of the MariaDB database:
 ```bash
-docker exec -it mariadb mysql -u root -p
+make db-check
 ```
-*(Enter your root password from `secrets/db_root_password.txt` when prompted)*. Once inside, you can run SQL commands like `SHOW DATABASES;` to check the status.
+

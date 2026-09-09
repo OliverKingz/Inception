@@ -41,10 +41,46 @@ $(DATA_DIR)/wordpress:
 	@echo "$(YELLOW)Creating directory for WordPress in $(DATA_DIR)/wordpress$(RESET)"
 	@mkdir -p $(DATA_DIR)/wordpress
 
+help:
+	@echo "$(CYAN)Available commands:$(RESET)"
+	@echo "  make all               - Build and start the entire infrastructure"
+	@echo "  make env               - Create .env file with default environment variables if it doesn't exist"
+	@echo "  make dirs              - Create necessary directories for persistent data"
+	@echo "  make build             - Build Docker images"
+	@echo "  make up                - Start containers in the background"
+	@echo "  make down              - Stop containers and remove images and volumes"
+	@echo "  make start             - Start containers without removing them"
+	@echo "  make stop              - Stop containers without removing them"
+	@echo "  make restart           - Restart containers without rebuilding them"
+	@echo "  make images            - Display status of Docker images"
+	@echo "  make ps                - Display status of running containers"
+	@echo "  make status            - Display status of images and containers"
+	@echo "  make logs              - Display logs of all containers"
+	@echo "  make db-check          - Check databases, users, and grants in MariaDB"
+	@echo "  make wp-check          - Check WordPress users and site URL"
+	@echo "  make network-check     - Inspect the Docker network created by docker-compose"
+	@echo "  make ls-containers     - List critical directories inside running containers"
+	@echo "  make logs-<service>    - Display logs of a specific container (e.g., logs-mariadb)"
+	@echo "  make rebuild-all       - Rebuild all services preserving data"
+	@echo "  make rebuild-<service> - Rebuild a specific service preserving data (e.g., rebuild-wordpress)"
+	@echo "  make db                - Access MariaDB as wpuser (interactive shell)"
+	@echo "  make db-root           - Access MariaDB as root (interactive shell)"
+	@echo "  make clean             - Stop and remove containers, images, networks, and volumes"
+	@echo "  make clean-data        - Remove persistent data directories for MariaDB and WordPress"
+	@echo "  make clean-docker      - Remove dangling Docker images and residual cache"
+	@echo "  make fclean            - Fully clean the system (containers, images, volumes, data, docker)"
+	@echo "  make re                - Fully clean and rebuild the entire infrastructure"
+
 dirs: $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
 	@echo "$(GREEN)All necessary directories are ready!$(RESET)"
 
-build: dirs
+env:
+	if [ ! -f .env ]; then \
+		echo "$(YELLOW)Creating .env file with default environment variables$(RESET)"; \
+		cp .env.example .env; \
+	fi
+
+build: dirs env
 	@echo "$(GREEN)Docker build: compiling images in docker$(RESET)"
 	docker compose -f $(COMPOSE_FILE) build
 
@@ -74,61 +110,29 @@ restart:
 	@echo "$(YELLOW)Docker restart: restarting (stop+start) containers without rebuilding them$(RESET)"
 	docker compose -f $(COMPOSE_FILE) restart
 
-status:
+# **************************************************************************** #
+# Rules for displaying information and logs
+
+images:
 	@echo "$(YELLOW)Displaying status of images$(RESET)"
 	docker images
-	@echo "$(YELLOW)\nDisplaying status of containers$(RESET)"
+
+ps:
+	@echo "$(YELLOW)Displaying status of containers$(RESET)"
 	docker ps
 
-# **************************************************************************** #
-# Rules for displaying logs of the containers
+status: images ps
 
 logs:
 	@echo "$(YELLOW)Displaying logs of containers$(RESET)"
 	docker compose -f $(COMPOSE_FILE) logs -f
 
-logs-mariadb:
-	@echo "$(YELLOW)Displaying logs of MariaDB$(RESET)"
-	docker compose -f $(COMPOSE_FILE) logs -f mariadb
-
-logs-wordpress:
-	@echo "$(YELLOW)Displaying logs of WordPress$(RESET)"
-	docker compose -f $(COMPOSE_FILE) logs -f wordpress
-
-logs-nginx:
-	@echo "$(YELLOW)Displaying logs of Nginx$(RESET)"
-	docker compose -f $(COMPOSE_FILE) logs -f nginx
+logs-%:
+	@echo "$(YELLOW)Displaying logs of $*$(RESET)"
+	docker compose -f $(COMPOSE_FILE) logs -f $*
 
 # **************************************************************************** #
-# Rules for rebuilding services preserving persistent data
-# Useful for reapplying changes in Dockerfiles or configuration files without losing data
-
-rebuild-data:
-	@echo "$(YELLOW)Rebuilding all services$(RESET)"
-	docker compose -f $(COMPOSE_FILE) up -d --no-deps --build mariadb wordpress nginx
-
-rebuild-mariadb:
-	@echo "$(YELLOW)Rebuilding MariaDB service$(RESET)"
-	docker compose -f $(COMPOSE_FILE) up -d --no-deps --build mariadb
-
-rebuild-wordpress:
-	@echo "$(YELLOW)Rebuilding WordPress service$(RESET)"
-	docker compose -f $(COMPOSE_FILE) up -d --no-deps --build wordpress
-
-rebuild-nginx:
-	@echo "$(YELLOW)Rebuilding Nginx service$(RESET)"
-	docker compose -f $(COMPOSE_FILE) up -d --no-deps --build nginx
-
-# **************************************************************************** #
-# Rules for accessing MariaDB and WordPress, checking their status and listing critical directories
-
-db:
-	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as wpuser (interactive shell)$(RESET)"
-	docker exec -it mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)" $$MYSQL_DATABASE'
-
-db-root:
-	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as root (interactive shell)$(RESET)"
-	docker exec -it mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" $$MYSQL_DATABASE'
+# Rules for checking the health of the services, database, network and containers
 
 db-check:
 	@echo "$(CYAN)[$(NAME)] Databases:$(RESET)"
@@ -146,6 +150,10 @@ wp-check:
 	@echo "\n$(CYAN)[WordPress] URLs that are configured in the DB:$(RESET)"
 	@docker exec wordpress wp option get siteurl --allow-root --path=/var/www/html
 
+network-check:
+	@echo "\n$(CYAN)[Docker Network] Inspecting the network created by docker-compose:$(RESET)"
+	docker network inspect inception_network
+
 ls-containers:
 	@echo "$(CYAN)[MariaDB] Critical Directories (/var/lib/mysql, /run/mysqld)$(RESET)"
 	@docker exec mariadb ls -ld /var/lib/mysql /run/mysqld 2>/dev/null || echo "MariaDB is not running."
@@ -154,6 +162,29 @@ ls-containers:
 	@echo "\n$(CYAN)[NGINX] Certificates (/etc/nginx/ssl) and Root Directory (/var/www/html)$(RESET)"
 	@docker exec nginx ls -la /etc/nginx/ssl 2>/dev/null || echo "NGINX is not running."
 	@docker exec nginx ls -ld /var/www/html 2>/dev/null || true
+
+# **************************************************************************** #
+# Rules for rebuilding services preserving persistent data
+# Useful for reapplying changes in Dockerfiles or configuration files without losing data
+
+rebuild-all:
+	@echo "$(YELLOW)Rebuilding all services$(RESET)"
+	docker compose -f $(COMPOSE_FILE) up -d --no-deps --build mariadb wordpress nginx
+
+rebuild-%:
+	@echo "$(YELLOW)Rebuilding $* service$(RESET)"
+	docker compose -f $(COMPOSE_FILE) up -d --no-deps --build $*
+
+# **************************************************************************** #
+# Rules for accessing MariaDB
+
+db:
+	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as wpuser (interactive shell)$(RESET)"
+	docker exec -it mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)" $$MYSQL_DATABASE'
+
+db-root:
+	@echo "$(CYAN)[$(NAME)] Accessing MariaDB as root (interactive shell)$(RESET)"
+	docker exec -it mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" $$MYSQL_DATABASE'
 
 # **************************************************************************** #
 # Rules for cleaning up containers, images, and data
@@ -179,8 +210,9 @@ fclean: clean clean-data clean-docker
 
 re: fclean all
 
-.PHONY: all dirs build up down start stop restart status \
-logs logs-mariadb logs-wordpress logs-nginx \
-rebuild-data rebuild-mariadb rebuild-wordpress rebuild-nginx \
-db db-root db-check wp-check ls-containers \
+.PHONY: all env dirs build up down start stop restart \
+images ps status logs logs-% \
+db-check wp-check network-check ls-containers \
+rebuild-all rebuild-% \
+db db-root \
 clean clean-data clean-docker fclean re
