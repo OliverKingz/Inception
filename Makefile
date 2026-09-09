@@ -58,6 +58,7 @@ help:
 	@echo "  make logs              - Display logs of all containers"
 	@echo "  make db-check          - Check databases, users, and grants in MariaDB"
 	@echo "  make wp-check          - Check WordPress users and site URL"
+	@echo "  make nginx-check       - Check NGINX configuration syntax"
 	@echo "  make network-check     - Inspect the Docker network created by docker-compose"
 	@echo "  make ls-containers     - List critical directories inside running containers"
 	@echo "  make logs-<service>    - Display logs of a specific container (e.g., logs-mariadb)"
@@ -75,9 +76,9 @@ dirs: $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
 	@echo "$(GREEN)All necessary directories are ready!$(RESET)"
 
 env:
-	if [ ! -f .env ]; then \
-		echo "$(YELLOW)Creating .env file with default environment variables$(RESET)"; \
-		cp .env.example .env; \
+	@if [ ! -f srcs/.env ]; then \
+		@echo "$(YELLOW)Creating .env file with default environment variables$(RESET)"; \
+		@cp srcs/.env.example srcs/.env; \
 	fi
 
 build: dirs env
@@ -146,9 +147,13 @@ db-check:
 
 wp-check:
 	@echo "\n$(CYAN)[WordPress] Users list and roles:$(RESET)"
-	@docker exec wordpress wp user list --allow-root --path=/var/www/html
+	docker exec wordpress wp user list --allow-root --path=/var/www/html
 	@echo "\n$(CYAN)[WordPress] URLs that are configured in the DB:$(RESET)"
-	@docker exec wordpress wp option get siteurl --allow-root --path=/var/www/html
+	docker exec wordpress wp option get siteurl --allow-root --path=/var/www/html
+
+nginx-check:
+	@echo "\n$(CYAN)[NGINX] Checking NGINX configuration syntax:$(RESET)"
+	docker exec -it nginx nginx -t
 
 network-check:
 	@echo "\n$(CYAN)[Docker Network] Inspecting the network created by docker-compose:$(RESET)"
@@ -156,12 +161,12 @@ network-check:
 
 ls-containers:
 	@echo "$(CYAN)[MariaDB] Critical Directories (/var/lib/mysql, /run/mysqld)$(RESET)"
-	@docker exec mariadb ls -ld /var/lib/mysql /run/mysqld 2>/dev/null || echo "MariaDB is not running."
+	docker exec mariadb ls -ld /var/lib/mysql /run/mysqld 2>/dev/null || echo "MariaDB is not running."
 	@echo "\n$(CYAN)[WordPress] Root Directory (/var/www/html)$(RESET)"
-	@docker exec wordpress ls -ld /var/www/html 2>/dev/null || echo "WordPress is not running."
+	docker exec wordpress ls -ld /var/www/html 2>/dev/null || echo "WordPress is not running."
 	@echo "\n$(CYAN)[NGINX] Certificates (/etc/nginx/ssl) and Root Directory (/var/www/html)$(RESET)"
-	@docker exec nginx ls -la /etc/nginx/ssl 2>/dev/null || echo "NGINX is not running."
-	@docker exec nginx ls -ld /var/www/html 2>/dev/null || true
+	docker exec nginx ls -la /etc/nginx/ssl 2>/dev/null || echo "NGINX is not running."
+	docker exec nginx ls -ld /var/www/html 2>/dev/null || true
 
 # **************************************************************************** #
 # Rules for rebuilding services preserving persistent data
@@ -212,7 +217,7 @@ re: fclean all
 
 .PHONY: all env dirs build up down start stop restart \
 images ps status logs logs-% \
-db-check wp-check network-check ls-containers \
+db-check wp-check nginx-check network-check ls-containers \
 rebuild-all rebuild-% \
 db db-root \
 clean clean-data clean-docker fclean re

@@ -25,11 +25,11 @@ This file explains, in clear and simple terms, how a developer can:
 
 ### Prerequisites
 Before setting up the environment, ensure the host system meets the following software requirements:
-*   **Operating System:** Debian 12 (Bookworm) is the target host operating system (typically running inside VirtualBox with at least 15 GB of virtual storage and 2 GB of RAM).
-*   **Docker Engine:** Version 20.10+ installed and running.
-*   **Docker Compose:** Version 2.20+ (using the modern `docker compose` plugin syntax, not the deprecated standalone `docker-compose`).
-*   **GNU Make:** Version 4.3+ for build automation.
-*   **OpenSSL:** Utilized in the host or during image builds to manage cryptographic certificate generation.
+*   **Operating System:** Linux-based distribution with a kernel version that supports Docker.
+*   **Docker Engine:** installed and running.
+*   **Docker Compose:** using the modern `docker compose` plugin syntax, not the deprecated standalone `docker-compose`.
+*   **GNU Make:** installed to utilize the provided Makefile for automation.
+*   **Git:** installed to clone the repository.
 
 ### Configuration Files
 The configuration files are strictly decoupled across services inside the `srcs/requirements/` directory structure:
@@ -42,35 +42,81 @@ The configuration files are strictly decoupled across services inside the `srcs/
     *   Runs the FPM workers under the restricted user/group `www-data`.
 3.  **MariaDB Configuration (`srcs/requirements/mariadb/conf/50-server.cnf`):**
     *   Binds the MySQL daemon to `bind-address = 0.0.0.0` to accept remote TCP connections from the WordPress container.
-    *   Estandariza los directorios de socket y PID en `/run/mysqld/` de acuerdo con las especificaciones de Debian Bookworm.
+	*   Standarizes the data directory to `/var/lib/mysql` for compatibility with the persistent volume mount.
 
 ### Secrets
 To guarantee that no credentials, API keys, or passwords are leaked to the public Git repository, we utilize **Docker Secrets** combined with a local `.gitignore` strategy:
 *   **Storage on Host:** All secrets are stored in raw text files in the `secrets/` directory in the root of the project:
-    *   `secrets/db_password.txt` (Password for the WordPress SQL database user).
-    *   `secrets/db_root_password.txt` (Password for the MariaDB database root administrator).
+    *   `secrets/MYSQL_PASSWORD.txt` (Password for the SQL database user).
+    *   `secrets/MYSQL_ROOT_PASSWORD.txt` (Password for the SQL database root administrator).
+	*   `secrets/WP_ADMIN_PASSWORD.txt` (Password for the WordPress admin user).
+	*   `secrets/WP_USER_PASSWORD.txt` (Password for the WordPress user).
 *   **Git Protection:** The `.gitignore` file explicitly includes `secrets/` and `srcs/.env` to prevent them from being committed to version control.
-*   **Runtime Mounting:** Docker Compose mounts these files as virtual temporary read-only files inside the memory-backed filesystem (`tmpfs`) of the containers under `/run/secrets/db_password` and `/run/secrets/db_root_password`.
+*   **Runtime Mounting:** Docker Compose mounts these files as virtual temporary read-only files inside the memory-backed filesystem (`tmpfs`) of the containers under `/run/secrets/MYSQL_PASSWORD` and `/run/secrets/MYSQL_ROOT_PASSWORD`.
 *   **Script Access:** Initialization scripts (`init_db.sh` and `setup_wordpress.sh`) extract these keys securely at boot time:
     ```bash
-    MYSQL_PASSWORD=$(cat /run/secrets/db_password)
-    MYSQL_ROOT_PASSWORD=$(cat /run/secrets/db_root_password)
+    MYSQL_PASSWORD=$(cat /run/secrets/MYSQL_PASSWORD)
+    MYSQL_ROOT_PASSWORD=$(cat /run/secrets/MYSQL_ROOT_PASSWORD)
     ```
+
+At the start of the evaluation, the evaluator must create these secret files with the correct passwords in the `secrets/` directory before running `make all`. The Makefile will fail if any of these secrets are missing.
+
+``` bash
+echo "<STRONG_PASSWORD>" > secrets/MYSQL_PASSWORD.txt
+echo "<STRONG_PASSWORD>" > secrets/MYSQL_ROOT_PASSWORD.txt
+echo "<STRONG_PASSWORD>" > secrets/WP_ADMIN_PASSWORD.txt
+echo "<STRONG_PASSWORD>" > secrets/WP_USER_PASSWORD.txt
+```
+About the `.env` file, it is used to define environment variables for the Docker Compose stack. It contains variables that are referenced in the `docker-compose.yml` file, and the other scripts. 
+A default `.env.example` file is provided in the `srcs/` directory. Developers should copy it to `srcs/.env` and modify the values as needed for their local environment.
+> 🔒 **Security Notice:** Both the `srcs/.env` file and the `secrets/` folder are listed in `.gitignore`. They will **never** be uploaded to GitHub, which is a strict rule to pass the project.
 
 ---
 
 ## Build and Launch
 
 ### Makefile
-The automation of the environment lifecycle is handled entirely by the `Makefile` in the root directory. It contains rules designed to safely initialize directories on the host under your user login home directory before launching Docker:
 
-*   `make` (or `make all`): Automatically creates host storage directories (`/home/ozamora-/data/wordpress` and `/home/ozamora-/data/mariadb`), builds the custom Docker images, and launches the stack in detached mode.
-*   `make build`: Compiles the custom Docker images without launching the containers.
-*   `make up`: Starts previously compiled services in detached mode (`-d`).
-*   `make down`: Gracefully stops the containers without deleting persistent volume directories.
-*   `make clean`: Stops and removes the active project containers, networks, and internal Docker-built images.
-*   `make fclean`: Triggers a deep cleanup. It executes `make clean`, purges the local volume directories from the host using `sudo rm -rf`, and cleans the global Docker cache with `docker system prune -af`.
-*   `make re`: Performs a complete rebuild from scratch by executing `make fclean` followed by `make all`.
+Main rules for managing the project lifecycle:
+* `make all` (or `make`): Automatically creates host storage directories for WordPress and MariaDB, builds the custom Docker images, and launches the stack in detached mode.
+* `make env`: Creates the `.env` file with default environment variables if it doesn't exist.
+* `make dirs`: Creates the necessary directories for persistent data storage on the host machine.
+* `make build`: Compiles the custom Docker images without launching the containers.
+* `make up`: Starts previously compiled services in detached mode (`-d`). It also waits for the services to be fully ready before returning control to the terminal.
+* `make down`: Gracefully stops the containers without deleting persistent volume directories.
+* `make start`: Starts the containers without rebuilding them.
+* `make stop`: Stops the containers without deleting them.
+* `make restart`: Stops and then starts the containers.
+
+Rules for displaying information and logs
+* `make images`: Lists the Docker images that have been built for the project.
+* `make ps`: Lists the running containers and their status.
+* `make status`: Displays the status of the images and running containers.
+* `make logs`: Displays the logs of all containers in real-time.
+* `make logs-<service>`: Displays the logs of a specific service (e.g., `make logs-wordpress`).
+
+Rules for checking the health of the services, database, network and containers:
+* `make db-check`: Displays the list of databases in MariaDB, users and their grants (permissions and privileges). 
+* `make wp-check`: Displays the list of users and their roles in WordPress. Also the URL.
+* `make nginx-check`: Checks the syntax of the NGINX configuration files and reports any errors or warnings.
+* `make network-check`: Inspects the Docker network created by docker-compose to ensure that all containers are connected properly.
+* `make ls-containers`: Lists the critical directories for each running container.
+
+Rules for rebuilding services preserving persistent data:
+* `make rebuild-all`: Rebuilds all the services, useful for applying changes to the Dockerfiles or configuration files without losing your data.
+* `make rebuild-<service>`: Rebuilds the data volume for a specific service (e.g., `make rebuild-wordpress`).
+
+Rules for accessing the database:
+* `make db`: Accesses the MariaDB ozamoradb database as the WordPress user (interactive shell).
+* `make db-root`: Accesses the MariaDB ozamoradb database as the root user (interactive shell).
+
+Rules for cleaning up the environment:
+* `make clean`: Stops and removes the active project containers, networks, and internal Docker-built images.
+* `make clean-data`: Removes the persistent data volumes for all services.
+* `make clean-docker`: Cleans up Docker resources, including unused images, containers, and
+ networks.
+* `make fclean`: Triggers a deep cleanup. It executes `make clean`, `make clean-data`, and `make clean-docker`.
+* `make re`: Performs a complete rebuild from scratch by executing `make fclean` followed by `make all`.
 
 ### Docker Compose
 The `docker-compose.yml` file acts as the infrastructure orchestrator, defining:

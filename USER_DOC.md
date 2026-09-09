@@ -104,7 +104,8 @@ Rules for displaying information and logs
 
 Rules for checking the health of the services, database, network and containers:
 * `make db-check`: Displays the list of databases in MariaDB, users and their grants (permissions and privileges). 
-* `make wp-check`: Displays the list of users and their roles in WordPress. Also the URL
+* `make wp-check`: Displays the list of users and their roles in WordPress. Also the URL.
+* `make nginx-check`: Checks the syntax of the NGINX configuration files and reports any errors or warnings.
 * `make network-check`: Inspects the Docker network created by docker-compose to ensure that all containers are connected properly.
 * `make ls-containers`: Lists the critical directories for each running container.
 
@@ -206,6 +207,7 @@ make logs-nginx
 make logs-wordpress
 make logs-mariadb
 ```
+The logs will show you any errors or issues that occurred during the startup of the services. Look for lines that indicate problems, such as "failed to start" or "connection refused".
 
 ### 3. Check the virtual network
 To verify that all three containers are connected to the same isolated network:
@@ -216,10 +218,120 @@ docker network inspect inception_network
 # Or use the Makefile command:
 make network-check
 ```
+The output should show that all three containers are connected to the same network, which is required for them to communicate with each other.
 
 ### 4. Check the Database status
 To verify the status of the MariaDB database:
 ```bash
+# Full command:
+docker exec mariadb sh -c 'mariadb -u "$$MYSQL_USER" -p"$$(cat /run/secrets/MYSQL_PASSWORD)" -e "SHOW DATABASES;"'
+docker exec mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" -e "SELECT User, Host FROM mysql.user;"'
+docker exec mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" -e "SHOW GRANTS FOR '\''ozamora'\''@'\''%'\'';"'
+docker exec mariadb sh -c 'mariadb -u root -p"$$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" -e "SHOW GRANTS FOR '\''root'\''@'\''localhost'\'';"'
+# Flags:
+# -u: specifies the user
+# -p: specifies the password
+# -e: executes the SQL statement
+
+# Or use the Makefile command:
 make db-check
 ```
+It shows the list of databases, users, and their grants (permissions and privileges).
 
+```bash
+[Inception] Databases:
+Database
+information_schema
+ozamoradb
+
+[Inception] Users:
+User    Host
+PUBLIC
+ozamora %
+        91f4920a72f1
+mariadb.sys     localhost
+mysql   localhost
+root    localhost
+
+[Inception] Grants:
+Grants for ozamora@%
+GRANT USAGE ON *.* TO `ozamora`@`%` IDENTIFIED BY PASSWORD '*'
+GRANT ALL PRIVILEGES ON `ozamoradb`.* TO `ozamora`@`%`
+
+[Inception] Grants for root:
+Grants for root@localhost
+GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` IDENTIFIED BY PASSWORD '*' WITH GRANT OPTION
+GRANT PROXY ON ''@'%' TO 'root'@'localhost' WITH GRANT OPTION
+```
+With this information, you can confirm that the database is running and that the WordPress user has the correct permissions to access it.
+
+Created database and users during the initial setup of the project:
+- `ozamoradb`: The name of the database used by WordPress to store its data, which is created during the initial setup of the project.
+- `ozamora`: The name of the WordPress database user, which is created during the initial setup of the project and has the necessary privileges to access the `ozamoradb` database.
+Privileges for the `ozamora` user:
+	- `GRANT USAGE`: Grants the user the ability to connect to the database server,
+	but does not grant any privileges on any databases.
+	- `GRANT ALL PRIVILEGES`: Grants the user full access to the `ozamoradb` database, including the ability to create, modify, and delete tables and data.
+- `root`: The name of the MariaDB root user, which is created during the initial setup of the project and has full administrative privileges on the database server.
+Privileges for the `root` user:
+	- `GRANT ALL PRIVILEGES`
+	- `WITH GRANT OPTION`: Allows the root user to grant privileges to other users, which is typically reserved for administrative users.
+	- `GRANT PROXY`: Allows the root user to act as a proxy for another user, which is typically used for administrative purposes.
+
+Other users and databases that are created by MariaDB by default:
+- `information_schema`: A system database that provides metadata about the other databases and their objects (tables, columns, indexes, etc.) in the MariaDB server. It is read-only and cannot be modified by users.
+
+- `PUBLIC`: Not a real user account. PUBLIC is a pseudo-role representing default privileges granted to all connected users. Keep (Cannot be deleted).
+- `mariadb.sys`: An internal system maintenance account created automatically during database bootstrap. Created by MariaDB for internal operations. Keep (Required internally)
+- `mysql`: Internal maitenance account via socket used for local maitenance. scripts. Keep (Harmless, socket-only)
+
+### 5. Check Wordpress users and roles
+To verify the status of the WordPress users and their roles:
+```bash
+# Full command:
+docker exec wordpress wp user list --allow-root --path=/var/www/html
+docker exec wordpress wp option get siteurl --allow-root --path=/var/www/html
+
+# Or use the Makefile command:
+make wp-check
+```
+It shows the list of users, their roles, and the URL configured in the WordPress database.
+```
+[WordPress] Users list and roles:
+ID      user_login      display_name    user_email                      user_registered roles
+2       ozamora         ozamora         oliverkingzamora@gmail.com      2026-09-09 22:02:11     author
+1       ozamora_master  ozamora_master  ozamora-@student.42madrid.com   2026-09-09 22:02:09     administrator
+
+[WordPress] URLs that are configured in the DB:
+https://ozamora.42.fr
+```
+It confirms that the WordPress users are created and have the correct roles assigned to them. The `ozamora_master` user is an administrator, while the `ozamora` user is an author. The URL configured in the WordPress database matches the domain name used to access the website.
+
+### 6. Check the NGINX configuration
+To verify the status of the NGINX configuration:
+```bash
+# Full command:
+docker exec -it nginx nginx -t
+
+# Or use the Makefile command:
+make nginx-check
+```
+It checks the syntax of the NGINX configuration files and reports any errors or warnings. If the configuration is valid, it will output:
+```
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+
+### 7. Check the container's critical directories
+To verify the status of the critical directories inside the running containers:
+```bash
+# Full commands:
+docker exec mariadb ls -ld /var/lib/mysql /run/mysqld
+docker exec wordpress ls -ld /var/www/html 
+docker exec nginx ls -la /etc/nginx/ssl 
+docker exec nginx ls -ld /var/www/html
+
+# Or use the Makefile command:
+make ls-containers
+```
+The output will show the contents of the critical directories for each container, which are essential for the proper functioning of the services. It confirms that the necessary files and directories are present and accessible.
