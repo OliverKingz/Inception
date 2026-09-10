@@ -65,20 +65,17 @@ It is the equivalent of running:
 make build up
 ```
 
-### 2. To Stop the Project Safely
-This stops the running containers without deleting any of your saved data:
+### 2. To Stop and clean Project Safely
+This stops and removes the containers, but keeps the images, the network, and the persistent data volumes intact. You can restart the project later without losing your data.
 ```bash
 make down
+
+# Or, if you want to stop the containers without deleting the containers, you can use:
+make stop
 ```
 
-### 3. To Clean the Project
-This stops the containers and deletes the network and built images, but keeps your files and database intact:
-```bash
-make clean
-```
-
-### 4. To Reset and Wipe Everything (Full Reset)
-**Warning: This will delete all your WordPress posts, configurations, and database files.** It wipes out the data folders on your host to let you start completely fresh:
+### 3. To Reset and Wipe Everything (Full Reset)
+This command stops the containers, deletes the network, removes the built images, and wipes out all your saved data (WordPress posts, configurations, and database files).
 ```bash
 make fclean
 ```
@@ -118,11 +115,10 @@ Rules for accessing the database:
 * `make db-root`: Accesses the MariaDB ozamoradb database as the root user (interactive shell).
 
 Rules for cleaning up the environment:
-* `make clean`: Stops and removes the active project containers, networks, and internal Docker-built images.
+* `make clean`: Stops and removes the active project containers (the same as down). In addition, it removes dangling containers.
 * `make clean-data`: Removes the persistent data volumes for all services.
-* `make clean-docker`: Cleans up Docker resources, including unused images, containers, and
- networks.
-* `make fclean`: Triggers a deep cleanup. It executes `make clean`, `make clean-data`, and `make clean-docker`.
+* `make clean-docker`: Cleans up Docker resources, including all dangling Docker images, volumes and residual cache. 
+* `make fclean`: Triggers a deep cleanup. It executes `make clean`, `make clean-data`, and `make clean-docker`. It stops and removes the containers, deletes the network, removes the built images, the volumes and wipes out all your saved data (WordPress posts, configurations, and database files).
 * `make re`: Performs a complete rebuild from scratch by executing `make fclean` followed by `make all`.
 ---
 

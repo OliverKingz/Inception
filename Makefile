@@ -49,7 +49,7 @@ help:
 	@echo "  make dirs              - Create necessary directories for persistent data"
 	@echo "  make build             - Build Docker images"
 	@echo "  make up                - Start containers in the background"
-	@echo "  make down              - Stop containers and remove images and volumes"
+	@echo "  make down              - Stop and remove containers. Keeps images and volumes"
 	@echo "  make start             - Start containers without removing them"
 	@echo "  make stop              - Stop containers without removing them"
 	@echo "  make restart           - Restart containers without rebuilding them"
@@ -62,12 +62,12 @@ help:
 	@echo "  make nginx-check       - Check NGINX configuration syntax"
 	@echo "  make network-check     - Inspect the Docker network created by docker-compose"
 	@echo "  make ls-containers     - List critical directories inside running containers"
-	@echo "  make logs-<service>    - Display logs of a specific container (e.g., logs-mariadb)"
+	@echo "  make logs-[service]    - Display logs of a specific container (e.g., logs-mariadb)"
 	@echo "  make rebuild-all       - Rebuild all services preserving data"
-	@echo "  make rebuild-<service> - Rebuild a specific service preserving data (e.g., rebuild-wordpress)"
+	@echo "  make rebuild-[service] - Rebuild a specific service preserving data (e.g., rebuild-wordpress)"
 	@echo "  make db                - Access MariaDB as wpuser (interactive shell)"
 	@echo "  make db-root           - Access MariaDB as root (interactive shell)"
-	@echo "  make clean             - Stop and remove containers, images, networks, and volumes"
+	@echo "  make clean             - Stop and remove containers. Keeps images and volumes."
 	@echo "  make clean-data        - Remove persistent data directories for MariaDB and WordPress"
 	@echo "  make clean-docker      - Remove dangling Docker images and residual cache"
 	@echo "  make fclean            - Fully clean the system (containers, images, volumes, data, docker)"
@@ -195,26 +195,30 @@ db-root:
 # **************************************************************************** #
 # Rules for cleaning up containers, images, and data
 
-clean:
-	@echo "$(RED)Stopping and removing containers, local images and networks"
-	@echo "$(RED)(Equivalent to: stop, rm, network rm, volume rm, rmi)$(RESET)"
-	@if [ -f $(COMPOSE_FILE) ]; then \
-		docker compose -f $(COMPOSE_FILE) down --rmi all --volumes 2>/dev/null || true; \
-	fi
+clean: down
+	@echo "$(YELLOW)Removing all dangling containers$(RESET)"
+	docker container prune -f
 
 clean-data:
 	@echo "$(RED)Removing data directories in $(DATA_DIR)$(RESET)"
-	@sudo rm -rf $(DATA_DIR)/mariadb/*
-	@sudo rm -rf $(DATA_DIR)/wordpress/*
+	@if [ -n "$(DATA_DIR)" ] && [ -d "$(DATA_DIR)" ]; then \
+		sudo rm -rf $(DATA_DIR)/mariadb/* $(DATA_DIR)/wordpress/* 2>/dev/null || true; \
+	fi
 
 clean-docker:
-	@echo "$(RED)Removing all dangling Docker images and residual cache$(RESET)"
-	@docker image prune -af 2>/dev/null || true
+	@echo "$(RED)Removing all dangling Docker images, volumes, and residual cache$(RESET)"
+	docker system prune -af --volumes 2>/dev/null || true
 
-fclean: clean clean-data clean-docker
+fclean: clean clean-data
+	@echo "$(RED)Removing project images and named volumes...$(RESET)"
+	docker compose -f $(COMPOSE_FILE) down --rmi all --volumes
+	@$(MAKE) clean-docker
 	@echo "$(GREEN)System completely sanitized!$(RESET)"
 
-re: fclean all
+re:
+	@echo "$(YELLOW)Rebuilding the entire project...$(RESET)"
+	@$(MAKE) fclean
+	@$(MAKE) all
 
 .PHONY: all env dirs build up down start stop restart \
 images ps status logs logs-% \
