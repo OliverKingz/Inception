@@ -35,8 +35,8 @@ services:
       - .env
     secrets:
       - MYSQL_PASSWORD
-      - WORDPRESS_USER_PASS
-      - WORDPRESS_ADMIM_PASS
+      - WORDPRESS_PASSWORD
+      - WORDPRESS_ADMIN_PASSWORD
     volumes:
       - wordpress_data:/var/www/html
     networks:
@@ -95,7 +95,7 @@ secrets:
     file: ../secrets/MYSQL_ROOT_PASSWORD.txt
   MYSQL_PASSWORD:
     file: ../secrets/MYSQL_PASSWORD.txt
-  WORDPRESS_USER_PASS:
-    file: ../secrets/WORDPRESS_USER_PASS.txt
-  WORDPRESS_ADMIM_PASS:
-    file: ../secrets/WORDPRESS_ADMIM_PASS.txt
+  WORDPRESS_PASSWORD:
+    file: ../secrets/WORDPRESS_PASSWORD.txt
+  WORDPRESS_ADMIN_PASSWORD:
+    file: ../secrets/WORDPRESS_ADMIN_PASSWORD.txt

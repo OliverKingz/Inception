@@ -131,21 +131,21 @@ Rules for cleaning up the environment:
 Since this project runs in a secure virtual machine, you need to configure your computer's browser to read the local domain.
 
 ### Step 1: Tell your computer where to find the domain
-You need to map the domain `ozamora.42.fr` to your local machine.
+You need to map the domain `ozamora-.42.fr` to your local machine.
 - **On macOS or Linux:** Open your terminal and run `sudo nano /etc/hosts`. Add this line at the bottom:
   ```text
-  127.0.0.1 ozamora.42.fr
+  127.0.0.1 ozamora-.42.fr
   ```
 - **On Windows:** Open Notepad as **Administrator**, open `C:\Windows\System32\drivers\etc\hosts`, and add the same line:
   ```text
-  127.0.0.1 ozamora.42.fr
+  127.0.0.1 ozamora-.42.fr
   ```
 
 ### Step 2: Access the site in your terminal or browser
 There are two ways to access the website: 
 1. By using the terminal of the virtual machine:
 ```bash
-curl -k https://ozamora.42.fr
+curl -k https://ozamora-.42.fr
 ```
 Flag -k allows curl to ignore the self-signed certificate warning and display the HTML content of the website.
 
@@ -154,8 +154,8 @@ Flag -k allows curl to ignore the self-signed certificate warning and display th
 startx firefox
 ```
 After opening your browser, now visit:
-- **Main Website:** [https://ozamora.42.fr](https://ozamora.42.fr)
-- **WordPress Admin Panel:** [https://ozamora.42.fr/wp-admin](https://ozamora.42.fr/wp-admin)
+- **Main Website:** [https://ozamora-.42.fr](https://ozamora-.42.fr)
+- **WordPress Admin Panel:** [https://ozamora-.42.fr/wp-admin](https://ozamora-.42.fr/wp-admin)
 
 Because we are using a self-signed security certificate (which is normal and required for testing), your browser will show a red warning saying the site is unsafe.
 
@@ -167,14 +167,14 @@ Your configuration settings and secret passwords are kept separate to ensure saf
 
 ### 1. General Configuration (`srcs/.env`)
 The file `srcs/.env` contains general variables such as the domain name, database names, and admin emails.
-- **Example:** `DOMAIN_NAME=ozamora.42.fr`
+- **Example:** `DOMAIN_NAME=ozamora-.42.fr`
 
 ### 2. Private Passwords (`secrets/` directory)
 Sensitive passwords are saved in small text files inside the `secrets/` directory in the root of the project:
 - `secrets/MYSQL_PASSWORD.txt`: Password for the WordPress database user.
 - `secrets/MYSQL_ROOT_PASSWORD.txt`: Master password for the MariaDB database root administrator.
-- `secrets/WORDPRESS_ADMIM_PASS.txt`: Password for the WordPress admin user.
-- `secrets/WORDPRESS_USER_PASS.txt`: Password for the WordPress regular user.
+- `secrets/WORDPRESS_ADMIN_PASSWORD.txt`: Password for the WordPress admin user.
+- `secrets/WORDPRESS_PASSWORD.txt`: Password for the WordPress regular user.
 
 > 🔒 **Security Notice:** Both the `srcs/.env` file and the `secrets/` folder are listed in `.gitignore`. They will **never** be uploaded to GitHub, which is a strict rule to pass the project.
 
@@ -303,7 +303,7 @@ ID      user_login      display_name    user_email                      user_reg
 1       ozamora_master  ozamora_master  ozamora-@student.42madrid.com   2026-09-09 22:02:09     administrator
 
 [WordPress] URLs that are configured in the DB:
-https://ozamora.42.fr
+https://ozamora-.42.fr
 ```
 It confirms that the WordPress users are created and have the correct roles assigned to them. The `ozamora_master` user is an administrator, while the `ozamora` user is an author. The URL configured in the WordPress database matches the domain name used to access the website.
 

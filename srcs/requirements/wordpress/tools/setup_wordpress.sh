@@ -3,8 +3,8 @@ set -eu
 
 # Read the WordPress user and admin passwords from Docker secrets for security
 MYSQL_PASSWORD=$(cat /run/secrets/MYSQL_PASSWORD)
-WORDPRESS_USER_PASS=$(cat /run/secrets/WORDPRESS_USER_PASS)
-WORDPRESS_ADMIM_PASS=$(cat /run/secrets/WORDPRESS_ADMIM_PASS)
+WORDPRESS_PASSWORD=$(cat /run/secrets/WORDPRESS_PASSWORD)
+WORDPRESS_ADMIN_PASSWORD=$(cat /run/secrets/WORDPRESS_ADMIN_PASSWORD)
 
 # Wait for MariaDB to be ready and accepting TCP connections
 echo "Waiting for MariaDB to be ready..."
@@ -58,7 +58,7 @@ if ! wp core is-installed --allow-root --path=/var/www/html; then
         --url="${DOMAIN_NAME}" \
         --title="${WORDPRESS_TITLE}" \
         --admin_user="${WORDPRESS_ADMIM}" \
-        --admin_password="${WORDPRESS_ADMIM_PASS}" \
+        --admin_password="${WORDPRESS_ADMIN_PASSWORD}" \
         --admin_email="${WORDPRESS_ADMIM_EMAIL}" \
         --skip-email \
         --path=/var/www/html
@@ -66,7 +66,7 @@ if ! wp core is-installed --allow-root --path=/var/www/html; then
     echo "Creating WordPress user with author role..."
     wp user create "${WORDPRESS_USER}" "${WORDPRESS_EMAIL}" \
         --role=author \
-        --user_pass="${WORDPRESS_USER_PASS}" \
+        --user_pass="${WORDPRESS_PASSWORD}" \
         --allow-root \
         --path=/var/www/html
 fi
