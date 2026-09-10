@@ -9,7 +9,7 @@ mkdir -p "$SSL_DIR"
 
 # Check if the SSL certificate already exists to avoid overwriting it when the container restarts
 if [ ! -f "$SSL_DIR/inception.crt" ] || [ ! -f "$SSL_DIR/inception.key" ]; then
-	echo "Generating self-signed SSL certificate for ozamora.42.fr..."
+	echo "Generating self-signed SSL certificate for $DOMAIN_NAME..."
 
 	# openssl req: utility to create certificate requests and self-signed certificates
 	# -x509: indicates that we want a self-signed digital certificate instead of a request (CSR)
@@ -23,7 +23,7 @@ if [ ! -f "$SSL_DIR/inception.crt" ] || [ ! -f "$SSL_DIR/inception.key" ]; then
 	openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 		-keyout "$SSL_DIR/inception.key" \
 		-out "$SSL_DIR/inception.crt" \
-		-subj "/C=ES/ST=Madrid/L=Madrid/O=42/OU=student/CN=ozamora.42.fr" # 
+		-subj "/C=ES/ST=Madrid/L=Madrid/O=42/OU=student/CN=$DOMAIN_NAME"
 
 	# Set secure Linux permissions on the generated files
 	# 700: read/write/execute for root only

@@ -4,6 +4,7 @@
 NAME          = Inception
 COMPOSE_FILE  = srcs/docker-compose.yml
 DATA_DIR      = /home/$(USER)/data
+DOMAIN_NAME    = $(shell grep DOMAIN_NAME srcs/.env | cut -d '=' -f2)
 
 CYAN          = \033[0;36m
 GREEN         = \033[0;32m
@@ -93,7 +94,7 @@ up:
 		sleep 2; \
 	done
 	@printf "$$ASCII_ART\n"
-	@echo "$(GREEN)Infrastructure is now active! Access at https://ozamora.42.fr$(RESET)"
+	@echo "$(GREEN)Infrastructure is now active! Access at https://$(DOMAIN_NAME)$(RESET)"
 
 down:
 	@echo "$(YELLOW)Docker down: stopping containers and removing images and volumes$(RESET)"
