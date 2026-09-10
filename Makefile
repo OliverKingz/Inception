@@ -97,7 +97,7 @@ up:
 	@echo "$(GREEN)Infrastructure is now active! Access at https://$(DOMAIN_NAME)$(RESET)"
 
 down:
-	@echo "$(YELLOW)Docker down: stopping containers and removing images and volumes$(RESET)"
+	@echo "$(YELLOW)Docker down: stopping and removing containers. Keeps images and volumes.$(RESET)"
 	docker compose -f $(COMPOSE_FILE) down
 
 start:

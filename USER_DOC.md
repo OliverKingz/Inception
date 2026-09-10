@@ -90,7 +90,7 @@ Main rules for managing the project lifecycle:
 * `make dirs`: Creates the necessary directories for persistent data storage on the host machine.
 * `make build`: Compiles the custom Docker images without launching the containers.
 * `make up`: Starts previously compiled services in detached mode (`-d`). It also waits for the services to be fully ready before returning control to the terminal.
-* `make down`: Gracefully stops the containers without deleting persistent volume directories.
+* `make down`: stops and removes the containers without deleting persistent volume directories.
 * `make start`: Starts the containers without rebuilding them.
 * `make stop`: Stops the containers without deleting them.
 * `make restart`: Stops and then starts the containers.
