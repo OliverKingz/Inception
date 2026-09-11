@@ -78,7 +78,7 @@ echo "Setting correct file ownership and permissions for /var/www/html..."
 chown -R www-data:www-data /var/www/html
 chmod -R 755 /var/www/html
 
-# Run PHP-FPM in the foreground as PID 1 (prevents container from exiting)
+# The exec command replaces the shell with the PHP-FPM daemon, ensuring that it runs as PID 1
 # -F forces PHP-FPM to run in the foreground, which is necessary for Docker to keep the container active and running
 echo "WordPress setup complete! Starting PHP-FPM on port 9000..."
 mkdir -p /run/php

@@ -38,7 +38,8 @@ else
 	echo "SSL certificate already exists in the volume. Skipping generation."
 fi
 
-# Run NGINX in the foreground (PID 1) replacing the current terminal process (exec)
-# 'daemon off;' prevents NGINX from running in the background, which would cause the container to stop
+# The exec command replaces the shell with the NGINX daemon, ensuring that it runs as PID 1
+# -g means global directives
+# 'daemon off;' tells NGINX to run in the foreground, which is necessary for Docker containers to keep running
 echo "Starting NGINX in the foreground..."
 exec nginx -g "daemon off;"

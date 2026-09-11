@@ -35,5 +35,7 @@ EOF
     echo "Database configuration completed successfully."
 fi
 
+# The exec command replaces the shell with the MariaDB daemon, ensuring that it runs as PID 1
+# --skip-name-resolve improves performance by avoiding DNS lookups for hostnames, useful to test the container in a local network where hostnames may not resolve properly
 echo "Starting MariaDB service..."
-exec mysqld --user=mysql --datadir=/var/lib/mysql --socket=/var/run/mysqld/mysqld.sock --skip-name-resolve
+exec mysqld --skip-name-resolve
