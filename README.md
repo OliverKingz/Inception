@@ -30,7 +30,7 @@ This project focuses on deploying a classic **LEMP stack** (Linux, NGINX, MariaD
 
 It also includes:
 
-- Two persistent Docker named volumes for storing the database and WordPress files, ensuring that data is preserved across container rebuilds.
+- Two Compose volumes backed by host bind mounts under `/home/ozamora-/data/`, ensuring that data is preserved across container recreation.
 - One dedicated Docker network connecting all services.
 
 ---
@@ -52,8 +52,8 @@ To simulate a real web server environment, the domain must be mapped to your loc
 3.  Create the credentials file `srcs/.env` and the secure secrets folder (`secrets/`) at the root of the project containing:
     - `secrets/MYSQL_PASSWORD.txt`
     - `secrets/MYSQL_ROOT_PASSWORD.txt`
-    - `secrets/WORDPRESS_PASS.txt`
-    - `secrets/WORDPRESS_ROOT_PASS.txt`
+    - `secrets/WORDPRESS_PASSWORD.txt`
+    - `secrets/WORDPRESS_ADMIN_PASSWORD.txt`
 
 You can use the provided `srcs/.env.example` as a template for the `.env` file.
 
@@ -85,7 +85,7 @@ MYSQL_PASSWORD_FILE=/run/secrets/MYSQL_PASSWORD
 MYSQL_ROOT_PASSWORD_FILE=/run/secrets/MYSQL_ROOT_PASSWORD
 
 WORDPRESS_ADMIN_PASSWORD_FILE=/run/secrets/WORDPRESS_ADMIN_PASSWORD
-WORDPPRESS_PASSWORD_FILE=/run/secrets/WORDPRESS_PASSWORD
+WORDPRESS_PASSWORD_FILE=/run/secrets/WORDPRESS_PASSWORD
 ```
 
 To create the necessary secrets, you can use the following commands:
@@ -117,7 +117,7 @@ The compilation and startup are automated via the root-level `Makefile`:
   ```bash
   make clean
   ```
-- **Purge the Environment (Deletes Persistent Volumes):**
+- **Purge the Environment (Deletes Persistent Data):**
   ```bash
   make fclean
   ```
@@ -175,12 +175,12 @@ Docker is used to create isolated containers for each service, allowing them to 
   _ **Storing in a Volume (/data):** Not chosen due to the subject, as it ask for only two volumes
   _ **Storing in a Docker Secret:** Not chosen because the certificate is not a secret, and it is not sensitive information. It is public information that can be shared with anyone. \* **Storing in the Container Image:** Not chosen because it would require rebuilding the image every time the certificate is updated, which is not efficient.
 - **Debian Base Image:** Every service is built from scratch starting with `debian:bookworm` (Debian 12). It was chosen over Alpine Linux due to its better compatibility with the latest versions of NGINX, MariaDB, and PHP-FPM, as well as its more extensive package repository.
-- **Safe Database Bootstrapping:** In our custom MariaDB script, we utilize an isolated temporal-start loop to create users and assign secure credentials before running the definitive PID 1 daemon.
+- **Safe Database Bootstrapping:** The custom MariaDB script initializes the data directory and uses `mysqld --bootstrap` once to create the database and users before starting the definitive PID 1 daemon.
 - **Security Best Practices:** The project adheres to security best practices by using Docker secrets for passwords, enforcing TLS protocols, and isolating services within a private network.
 - **WP-CLI Usage:** The WordPress Command Line Interface (WP-CLI) is used to automate the initial setup of the WordPress site, including creating the admin user and configuring the database connection.
 - **Docker Secrets over Environment Variables:** Keeps passwords out of container environment variables and makes them available as files under `/run/secrets/`. The current Compose configuration uses file-based secrets.
-- **PID 1 Signal Handling:** Service entrypoint scripts use `exec` to replace the shell process with the main service daemon as PID 1, ensuring clean signal forwarding (`SIGTERM`) without resorting to forbidden loops (`tail -f`, `sleep infinity`). The scripts are used as ENTRYPOINT at the Dockerfile level, not as CMD, to ensure that the service is the main process and receives signals directly from Docker. The daemon remplaza the shell process, remaining as PID 1.
-  All three are PID 1 processes in their respective containers, allowing Docker to control their lifecycle and handle signals properly.
+- **PID 1 Signal Handling:** Service entrypoint scripts use `exec` to replace the shell process with the main service daemon as PID 1, allowing Docker to deliver signals directly to the service. Startup scripts may use short-lived retry loops, but do not use `tail -f` or `sleep infinity` to keep a container alive.
+  All three final service processes are PID 1 in their respective containers.
   All three services use the following commands to start their respective daemons at the end of their entrypoint scripts:
   - `exec mysqld` for MariaDB. Already runs as PID 1, so no additional flags are needed.
   - `exec php-fpm8.2 -F` for WordPress (PHP-FPM). -F flag is specific for PHP-FPM to run in the foreground.
@@ -205,13 +205,13 @@ Docker is used to create isolated containers for each service, allowing them to 
 
 | Feature             | Docker Secrets                  | Environment Variables             |
 | :------------------ | :------------------------------ | :-------------------------------- |
-| **Location**        | File in RAM (`/run/secrets/`)   | Process memory space              |
+| **Location**        | File under `/run/secrets/`      | Process environment               |
 | **Visibility**      | Hidden, container-only          | Plain text via `docker inspect`   |
-| **Security**        | High                            | Low for sensitive data            |
+| **Security**        | Keeps passwords out of container environment variables | Easily exposed through environment inspection |
 | **Inception Usage** | Passwords, private keys, tokens | Domain names, public users, ports |
 
 - **Environment Variables:** For public settings. Stored in plain text and easily exposed in logs or CLI inspections.
-- **Docker Secrets:** For sensitive credentials. Mounted as in-memory files only accessible to the authorized container.
+- **Docker Secrets:** For sensitive credentials. Mounted as files under `/run/secrets/` and made available only to the services that declare them. This Compose configuration uses local file-based secrets and does not explicitly configure `tmpfs`.
 
 #### 3. Docker Network (Bridge) vs Host Network
 
@@ -232,7 +232,7 @@ Docker is used to create isolated containers for each service, allowing them to 
 | **Management**      | Fully managed by Docker               | Managed manually by the user                |
 | **Default Path**    | `/var/lib/docker/volumes/`            | Any host path (`/home/ozamora-/data/`)      |
 | **Deletion**        | Removed with `docker volume rm`       | Never deleted by Docker commands            |
-| **Inception Usage** | Named volumes backed by local storage | Strict requirement to store data in `/home` |
+| **Inception Usage** | Compose volumes backed by `/home/ozamora-/data/` bind mounts | Host paths managed directly by the user |
 
 - **Docker Volumes:** Docker manages the storage location and lifecycle inside its own system directory.
 - **Bind Mounts:** You link an exact physical directory from your machine, ensuring data survives even complete Docker purges.

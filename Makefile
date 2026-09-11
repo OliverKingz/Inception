@@ -3,7 +3,7 @@
 
 NAME          = Inception
 COMPOSE_FILE  = srcs/docker-compose.yml
-DATA_DIR      = /home/$(USER)/data
+DATA_DIR      = /home/ozamora-/data
 DOMAIN_NAME    = $(shell grep DOMAIN_NAME srcs/.env | cut -d '=' -f2)
 
 CYAN          = \033[0;36m

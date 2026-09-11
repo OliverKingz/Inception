@@ -73,7 +73,7 @@ make build up
 
 ### 2. To Stop and clean Project Safely
 
-This stops and removes the containers, but keeps the images, the network, and the persistent data volumes intact. You can restart the project later without losing your data.
+This stops and removes the containers and project network, but keeps the images and persistent data directories intact. You can restart the project later without losing your data.
 
 ```bash
 make down
@@ -98,7 +98,7 @@ Main rules for managing the project lifecycle:
 - `make env`: Creates the `.env` file with default environment variables if it doesn't exist.
 - `make dirs`: Creates the necessary directories for persistent data storage on the host machine.
 - `make build`: Compiles the custom Docker images without launching the containers.
-- `make up`: Starts previously compiled services in detached mode (`-d`). It also waits for the services to be fully ready before returning control to the terminal.
+- `make up`: Starts previously compiled services in detached mode (`-d`). It waits until WordPress reports that it is installed before returning control to the terminal.
 - `make down`: stops and removes the containers without deleting persistent volume directories.
 - `make start`: Starts the containers without rebuilding them.
 - `make stop`: Stops the containers without deleting them.
@@ -123,7 +123,7 @@ Rules for checking the health of the services, database, network and containers:
 Rules for rebuilding services preserving persistent data:
 
 - `make rebuild-all`: Rebuilds all the services, useful for applying changes to the Dockerfiles or configuration files without losing your data.
-- `make rebuild-<service>`: Rebuilds the data volume for a specific service (e.g., `make rebuild-wordpress`).
+- `make rebuild-<service>`: Rebuilds a specific service while preserving persistent data (e.g., `make rebuild-wordpress`).
 
 Rules for accessing the database:
 
@@ -133,9 +133,9 @@ Rules for accessing the database:
 Rules for cleaning up the environment:
 
 - `make clean`: Stops and removes the active project containers (the same as down). In addition, it removes dangling containers.
-- `make clean-data`: Removes the persistent data volumes for all services.
+- `make clean-data`: Deletes the contents of the persistent host data directories for MariaDB and WordPress.
 - `make clean-docker`: Cleans up Docker resources, including all dangling Docker images, volumes and residual cache.
-- `make fclean`: Triggers a deep cleanup. It executes `make clean`, `make clean-data`, and `make clean-docker`. It stops and removes the containers, deletes the network, removes the built images, the volumes and wipes out all your saved data (WordPress posts, configurations, and database files).
+- `make fclean`: Triggers a deep cleanup. It executes `make clean`, `make clean-data`, and `make clean-docker`. It stops and removes the containers, deletes the network, removes the built images and Compose volumes, and wipes out the host data directories containing WordPress posts, configurations, and database files.
 - `make re`: Performs a complete rebuild from scratch by executing `make fclean` followed by `make all`.
 
 ---

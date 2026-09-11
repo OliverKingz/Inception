@@ -58,18 +58,18 @@ git --version
 
 ### Domain Name Configuration
 
-The project requirement specifies mapping the local domain `ozamora.42.fr` to the local loopback address (`127.0.0.1`).
+The project requirement specifies mapping the local domain `ozamora-.42.fr` to the local loopback address (`127.0.0.1`).
 
 Add the domain mapping to `/etc/hosts` on your development host / VM:
 
 ```bash
-echo "127.0.0.1 ozamora.42.fr" | sudo tee -a /etc/hosts
+echo "127.0.0.1 ozamora-.42.fr" | sudo tee -a /etc/hosts
 ```
 
 Verify resolution:
 
 ```bash
-ping -c 3 ozamora.42.fr
+ping -c 3 ozamora-.42.fr
 ```
 
 ### Environment Variables
@@ -106,7 +106,7 @@ MYSQL_PASSWORD_FILE=/run/secrets/MYSQL_PASSWORD
 MYSQL_ROOT_PASSWORD_FILE=/run/secrets/MYSQL_ROOT_PASSWORD
 
 WORDPRESS_ADMIN_PASSWORD_FILE=/run/secrets/WORDPRESS_ADMIN_PASSWORD
-WORDPPRESS_PASSWORD_FILE=/run/secrets/WORDPRESS_PASSWORD
+WORDPRESS_PASSWORD_FILE=/run/secrets/WORDPRESS_PASSWORD
 ```
 
 ### Docker Secrets Setup
@@ -127,8 +127,8 @@ mkdir -p secrets
 # Change the following passwords to your desired secure values
 echo "password" > secrets/MYSQL_PASSWORD.txt
 echo "password" > secrets/MYSQL_ROOT_PASSWORD.txt
-echo "password" > secrets/WORDPRESS_PASS.txt
-echo "password" > secrets/WORDPRESS_ROOT_PASS.txt
+echo "password" > secrets/WORDPRESS_PASSWORD.txt
+echo "password" > secrets/WORDPRESS_ADMIN_PASSWORD.txt
 
 # Secure permissions (read-only for owner)
 chmod 600 secrets/*.txt
@@ -230,7 +230,7 @@ The `make` command automatically uses the rules `dirs`, `env`, `build`, and `up`
 2. Checks for the presence of the environment variables in `srcs/.env`, and copies them from `srcs/.env.example` if missing.
 3. Invokes `docker compose -f srcs/docker-compose.yml build` to build Debian Bookworm images for NGINX, WordPress, and MariaDB with custom configurations.
 4. Spawns containers on `inception_network` in detached mode (`up -d`).
-5. Waits for the WordPress and PHP-FPM services to be ready to accept connections.
+5. Waits until WordPress reports that it is installed. This is not a Compose health check and does not independently test PHP-FPM or NGINX.
 
 ### Makefile Commands
 
@@ -242,7 +242,7 @@ The root `Makefile` provides standardized control targets:
 | `make dirs`              | Creates the necessary directories for persistent data.                                                 |
 | `make env`               | Creates the `.env` file with default environment variables if it doesn't exist.                        |
 | `make build`             | Builds the custom Docker images without launching containers.                                          |
-| `make up`                | Starts previously built services in detached mode. Waits for readiness                                 |
+| `make up`                | Starts previously built services in detached mode and waits for WordPress installation.                |
 | `make down`              | Stops and removes containers without deleting persistent volume directories.                           |
 | `make start`             | Starts the containers without rebuilding them.                                                         |
 | `make stop`              | Stops the containers without deleting them.                                                            |
@@ -258,11 +258,11 @@ The root `Makefile` provides standardized control targets:
 | `make network-check`     | Inspects the Docker network created by docker-compose to ensure all containers are connected properly. |
 | `make ls-containers`     | Lists the critical directories for each running container.                                             |
 | `make rebuild-all`       | Rebuilds all the services, useful for applying changes to the Dockerfiles/configuration files.         |
-| `make rebuild-<service>` | Rebuilds the data volume for a specific service                                                        |
+| `make rebuild-<service>` | Rebuilds a specific service while preserving persistent data.                                          |
 | `make db`                | Accesses the MariaDB ozamoradb database as the WordPress user (interactive shell).                     |
 | `make db-root`           | Accesses the MariaDB ozamoradb database as the root user (interactive shell).                          |
 | `make clean`             | It executes `make down`. In addition, it removes dangling containers.                                  |
-| `make clean-data`        | Removes the persistent data volumes for all services.                                                  |
+| `make clean-data`        | Deletes the contents of the persistent host data directories.                                          |
 | `make clean-docker`      | Cleans up Docker resources, including all dangling Docker images, volumes and residual cache.          |
 | `make fclean`            | Triggers a deep cleanup. It executes `make clean`, `make clean-data`, and `make clean-docker`.         |
 | `make re`                | Performs a complete rebuild from scratch by executing `make fclean` followed by `make all`.            |
@@ -275,7 +275,7 @@ The orchestration specification in `srcs/docker-compose.yml` ensures:
 - **Isolated Port Exposure:** Only NGINX publishes host port `443:443`. MariaDB (`3306`) and WordPress (`9000`) use `expose` to remain strictly internal.
 - **Restart Policy:** Configured with `restart: always` to automatically restart containers on failure or host reboot.
 - **Shared Volumes:** NGINX and WordPress share the `/var/www/html` volume for static file serving, while MariaDB has its own persistent volume for database storage.
-- **Dependencies:** Service dependencies are defined using `depends_on` to ensure proper startup order, but health checks are used to verify readiness.
+- **Dependencies:** Service dependencies are defined using `depends_on` to control startup order. No Compose health checks are configured; the Makefile waits until WordPress reports that it is installed.
 - **Environment Variables:** Loaded from the `.env` file for consistent configuration across services, using `env_file` in the Compose specification.
 - **Network Isolation:** All services are connected to a dedicated bridge network (`inception_network`) for secure inter-service communication. `driver: bridge` is used to create an isolated network for the stack.
 - **Volume Mounts:** Persistent data is stored in host bind mounts to ensure data survives container recreation.
@@ -368,8 +368,8 @@ make logs-mariadb
 To verify database users and privilege tables directly inside the running MariaDB container:
 
 ```bash
-# Open interactive MySQL shell using mounted root secret
-docker exec -it mariadb mysql -u root -p$(cat /run/secrets/MYSQL_ROOT_PASSWORD) ozamoradb
+# Open an interactive MariaDB shell using the mounted root secret
+docker exec -it mariadb sh -c 'mariadb -u root -p"$(cat /run/secrets/MYSQL_ROOT_PASSWORD)" ozamoradb'
 
 # Or use the makefiles shortcut:
 make db-root
@@ -419,12 +419,12 @@ make rebuild-all
   - **Storing in a Docker Secret:** Not chosen because the certificate is not a secret, and it is not sensitive information. It is public information that can be shared with anyone.
   - **Storing in the Container Image:** Not chosen because it would require rebuilding the image every time the certificate is updated, which is not efficient.
 - **Debian Base Image:** Every service is built from scratch starting with `debian:bookworm` (Debian 12). It was chosen over Alpine Linux due to its better compatibility with the latest versions of NGINX, MariaDB, and PHP-FPM, as well as its more extensive package repository.
-- **Safe Database Bootstrapping:** In our custom MariaDB script, we utilize an isolated temporal-start loop to create users and assign secure credentials before running the definitive PID 1 daemon.
+- **Safe Database Bootstrapping:** The custom MariaDB script initializes the data directory and uses `mysqld --bootstrap` once to create the database and users before starting the definitive PID 1 daemon. WordPress separately waits for MariaDB with a retry loop.
 - **Security Best Practices:** The project adheres to security best practices by using Docker secrets for passwords, enforcing TLS protocols, and isolating services within a private network.
 - **WP-CLI Usage:** The WordPress Command Line Interface (WP-CLI) is used to automate the initial setup of the WordPress site, including creating the admin user and configuring the database connection.
 - **Docker Secrets over Environment Variables:** Keeps passwords out of container environment variables and makes them available as files under `/run/secrets/`. The current Compose configuration uses file-based secrets.
-- **PID 1 Signal Handling:** Service entrypoint scripts use `exec` to replace the shell process with the main service daemon as PID 1, ensuring clean signal forwarding (`SIGTERM`) without resorting to forbidden loops (`tail -f`, `sleep infinity`). The scripts are used as ENTRYPOINT at the Dockerfile level, not as CMD, to ensure that the service is the main process and receives signals directly from Docker. The daemon remplaza the shell process, remaining as PID 1.
-  All three are PID 1 processes in their respective containers, allowing Docker to control their lifecycle and handle signals properly.
+- **PID 1 Signal Handling:** Service entrypoint scripts use `exec` to replace the shell process with the main service daemon as PID 1, allowing Docker to deliver signals directly to the service. The scripts are used as `ENTRYPOINT` at the Dockerfile level. Startup scripts may still use short-lived retry loops; they do not use `tail -f` or `sleep infinity` to keep a container alive.
+  All three final service processes are PID 1 in their respective containers.
   All three services use the following commands to start their respective daemons at the end of their entrypoint scripts:
   - `exec mysqld` for MariaDB. Already runs as PID 1, so no additional flags are needed.
   - `exec php-fpm8.2 -F` for WordPress (PHP-FPM). -F flag is specific for PHP-FPM to run in the foreground.
